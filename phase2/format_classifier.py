@@ -1,98 +1,58 @@
 # phase2/format_classifier.py
-# ------------------------------------------------------
-# UPSC Question Format Classifier
-# ------------------------------------------------------
-# Detects one of the following types:
-#   single, statement, table, match, paragraph, assertion
-# ------------------------------------------------------
+# --------------------------------------------------------------
+# Determine question format: single, statement, table, match,
+# assertion, paragraph
+# --------------------------------------------------------------
 
 import re
 
-
 class FormatClassifier:
 
-    # --------------------------------------------------
-    # PATTERN DEFINITIONS
-    # --------------------------------------------------
+    def classify(self, question_text: str):
+        qt = question_text.lower()
 
-    # Statement pattern
-    statement_intro = re.compile(
-        r"(consider the following statements|which of the following statements|statement\s*i)", 
-        re.IGNORECASE
-    )
-
-    roman_pat = re.compile(r"^(I|II|III|IV|V|VI|VII|VIII|IX|X)[\.\:]", re.IGNORECASE)
-
-    # Assertion–Reason patterns
-    assertion_pat = re.compile(r"assertion\s*\(", re.IGNORECASE)
-    reason_pat = re.compile(r"reason\s*\(", re.IGNORECASE)
-
-    # Table indicator
-    table_pat = re.compile(r"[A-Za-z0-9]+\s*\|\s*[A-Za-z0-9]+")
-
-    # Match-the-column indicators
-    match_keywords = [
-        "match the following",
-        "pair", "pairs",
-        "column", "list-i", "list-ii"
-    ]
-
-    # Paragraph indicators
-    paragraph_intro = re.compile(
-        r"(read the following|passage|paragraph)", re.IGNORECASE
-    )
-
-    # --------------------------------------------------
-    # MAIN CLASSIFIER
-    # --------------------------------------------------
-    def classify(self, text: str):
-        """
-        Input: one cleaned question string
-        Output: name of format
-        """
-
-        low = text.lower()
-
-        # --------------------------------------
-        # 1. ASSERTION–REASON
-        # --------------------------------------
-        if self.assertion_pat.search(low) or self.reason_pat.search(low):
-            return "assertion"
-
-        # --------------------------------------
-        # 2. TABLE
-        # --------------------------------------
-        if self.table_pat.search(text):
+        # ---------------------------
+        # TABLE
+        # ---------------------------
+        if "|" in question_text:
+            return "table"
+        if re.search(r"\b(works under|functions|organization)\b", qt) and \
+           re.search(r"\b(i\.)\s", qt):
             return "table"
 
-        # --------------------------------------
-        # 3. STATEMENT (Roman numerals OR "Statement I")
-        # --------------------------------------
-        if self.statement_intro.search(low):
+        # ---------------------------
+        # STATEMENT
+        # ---------------------------
+        if "consider the following statements" in qt:
+            return "statement"
+        if re.search(r"statement\s+i\.", qt):
+            return "statement"
+        if re.search(r"\bi\.\s", qt) and re.search(r"\bii\.\s", qt):
             return "statement"
 
-        if any(self.roman_pat.match(ln.strip()) for ln in text.split("\n")):
-            return "statement"
+        # ---------------------------
+        # MATCH THE FOLLOWING
+        # ---------------------------
+        if "match the following" in qt:
+            return "match"
+        if re.search(r"^[a-d]\.", qt) and re.search(r"\b1\.", qt):
+            return "match"
 
-        # --------------------------------------
-        # 4. MATCH-THE-COLUMN
-        # --------------------------------------
-        for kw in self.match_keywords:
-            if kw in low:
-                return "match"
+        # ---------------------------
+        # ASSERTION–REASON
+        # ---------------------------
+        if "assertion (a)" in qt and "reason (r)" in qt:
+            return "assertion"
+        if "assertion:" in qt and "reason:" in qt:
+            return "assertion"
 
-        # --------------------------------------
-        # 5. PARAGRAPH
-        # --------------------------------------
-        if self.paragraph_intro.search(low):
+        # ---------------------------
+        # PARAGRAPH
+        # ---------------------------
+        if "read the following" in qt:
+            return "paragraph"
+        if len(qt.split(".")) > 5:  # long descriptive passage
             return "paragraph"
 
-        # --------------------------------------
-        # 6. DEFAULT → SINGLE
-        # --------------------------------------
+        # Default
         return "single"
-
-
-# convenience
-def classify_format(text: str):
-    return FormatClassifier().classify(text)

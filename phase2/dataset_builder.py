@@ -1,30 +1,96 @@
 # phase2/dataset_builder.py
 # -------------------------------------------------------------
-# NEW DATASET BUILDER (UPSCAware)
+# NEW UPSC-AWARE DATASET BUILDER (FINAL PRODUCTION VERSION)
 # -------------------------------------------------------------
-# This module replaces full-column parsing.
-# It now:
-#   1. Loads OCR-cleaned column text
-#   2. Uses UPSCQuestionBlockDetector →  question blocks
-#   3. Calls BlockParser per block (LLM)
-#   4. Sanitizes JSON
-#   5. Normalizes options
-#   6. Classifies question format
-#   7. Assigns stable IDs
-#   8. Produces final dataset list
+# Pipeline:
+#   1. Reads cleaned OCR text (Phase 1 output)
+#   2. LLM Column Segmentation → question blocks
+#   3. Per-block LLM parsing → structured JSON
+#   4. Sanitize JSON
+#   5. Normalize options (A/B/C/D/E)
+#   6. Classify format (statement, table, match, assertion, paragraph, single)
+#   7. Beautify tables
+#   8. Fix OCR glitches ("ll the four" → "All the four")
+#   9. Insert UI-friendly line breaks
+#  10. Assign IDs
+#  11. Save final dataset JSON
 # -------------------------------------------------------------
 
 import json
 import os
-import glob
 
-from utils.upsc_question_block_detector import detect_question_blocks
+from phase2.segmenter_groq import segment_column
 from phase2.block_parser import parse_block
 from phase2.json_sanitizer import sanitize_and_load
 from phase2.option_normalizer import normalize_options
-from phase2.format_classifier import classify_format
+from phase2.format_classifier import FormatClassifier
+from phase2.table_formatter import TableFormatter
+from phase2.ocr_fixer import SafeOCRFixer
 from phase2.id_gen import make_id
-from phase2.segmenter_groq import segment_column
+
+
+format_classifier = FormatClassifier()
+table_formatter = TableFormatter()
+ocr_fixer = SafeOCRFixer()
+
+
+def _apply_linebreaks(text: str) -> str:
+    """
+    Insert clean UI-friendly line breaks for statement-format questions.
+    Does NOT change wording.
+    """
+    if not text:
+        return text
+
+    # Create newline before Roman numerals
+    text = text.replace(" I.", "\nI.")
+    text = text.replace(" II.", "\nII.")
+    text = text.replace(" III.", "\nIII.")
+    text = text.replace(" IV.", "\nIV.")
+    text = text.replace(" V.", "\nV.")
+
+    # Ensure question ends cleanly
+    return text.strip()
+
+
+def _postprocess_question(q_text: str, q_format: str) -> str:
+    """
+    Applies formatting transformations to question text.
+    """
+
+    # Beautify tables
+    if q_format == "table":
+        q_text = table_formatter.format(q_text)
+
+    # Insert line breaks for statements
+    if q_format == "statement":
+        q_text = _apply_linebreaks(q_text)
+
+    # Insert line breaks for assertion–reason
+    if q_format == "assertion":
+        q_text = q_text.replace("Reason (R):", "\nReason (R):")
+
+    return q_text.strip()
+
+
+def _postprocess_options(options: dict) -> dict:
+    """
+    Normalize and fix option OCR glitches.
+    """
+
+    cleaned = {}
+
+    for key, val in options.items():
+        if not val:
+            cleaned[key] = ""
+            continue
+
+        # Fix OCR glitches safely
+        fixed = ocr_fixer.fix_option(val)
+
+        cleaned[key] = fixed.strip()
+
+    return cleaned
 
 
 def build_dataset(ocr_files, output_file):
@@ -33,15 +99,16 @@ def build_dataset(ocr_files, output_file):
 
     for file_path in ocr_files:
 
-        # Extract tag like "UPSC_2025_p1_c1"
+        # Produce clean tag: UPSC_2025_p1_c1
         tag = os.path.basename(file_path).replace(".txt", "")
 
         with open(file_path, "r", encoding="utf-8") as f:
             col_text = f.read().strip()
 
         # ---------------------------------------------------------
-        # STEP 1: Detect individual UPSC question blocks
+        # STEP 1: SEGMENT COLUMN USING LLM
         # ---------------------------------------------------------
+        print(f"\n[SEGMENT] Processing column → {tag}")
         blocks = segment_column(col_text, tag)
 
         if not blocks:
@@ -49,7 +116,7 @@ def build_dataset(ocr_files, output_file):
             continue
 
         # ---------------------------------------------------------
-        # STEP 2: Parse each block with Groq LLM
+        # STEP 2: PARSE EACH BLOCK USING BLOCK PARSER LLM
         # ---------------------------------------------------------
         for idx, block in enumerate(blocks, start=1):
 
@@ -58,7 +125,7 @@ def build_dataset(ocr_files, output_file):
             raw_json = parse_block(block, f"{tag}_block{idx}")
 
             # -----------------------------------------------------
-            # STEP 3: Sanitize the raw JSON output
+            # STEP 3: CLEAN JSON OUTPUT
             # -----------------------------------------------------
             parsed = sanitize_and_load(raw_json)
 
@@ -66,36 +133,50 @@ def build_dataset(ocr_files, output_file):
                 print(f"[ERROR] Block {idx} → Invalid LLM output → Skipping")
                 continue
 
-            # -----------------------------------------------------
-            # STEP 4: Normalize options
-            # -----------------------------------------------------
-            if "options" in parsed and parsed["options"]:
-                parsed["options"] = normalize_options(parsed["options"])
-            else:
-                parsed["options"] = {}
+            q_text = parsed.get("question", "").strip()
+            options = parsed.get("options", {})
 
             # -----------------------------------------------------
-            # STEP 5: Classify question format (fallback)
+            # STEP 4: NORMALIZE OPTIONS
             # -----------------------------------------------------
-            if not parsed.get("format"):
-                parsed["format"] = classify_format(parsed.get("question", ""))
+            options = normalize_options(options)
 
             # -----------------------------------------------------
-            # STEP 6: Add metadata
+            # STEP 5: CLASSIFY QUESTION FORMAT
             # -----------------------------------------------------
+            q_format = parsed.get("format")
+            if not q_format:
+                q_format = format_classifier.classify(q_text)
+
+            # -----------------------------------------------------
+            # STEP 6: POSTPROCESS QUESTION TEXT
+            # -----------------------------------------------------
+            q_text = _postprocess_question(q_text, q_format)
+
+            # -----------------------------------------------------
+            # STEP 7: POSTPROCESS OPTIONS (OCR FIXES)
+            # -----------------------------------------------------
+            options = _postprocess_options(options)
+
+            # -----------------------------------------------------
+            # STEP 8: ADD METADATA
+            # -----------------------------------------------------
+            parsed["question"] = q_text
+            parsed["options"] = options
+            parsed["format"] = q_format
             parsed["id"] = make_id(tag, idx)
 
-            # user asked to omit question number → ensure removed
+            # Remove question number (never needed)
             parsed.pop("number", None)
 
             final_dataset.append(parsed)
 
     # ---------------------------------------------------------
-    # STEP 7: Save final dataset JSON
+    # STEP 9: SAVE FINAL DATASET JSON
     # ---------------------------------------------------------
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(final_dataset, f, indent=2, ensure_ascii=False)
 
-    print(f"[PHASE 2 COMPLETE] Saved {len(final_dataset)} questions → {output_file}")
+    print(f"\n[PHASE 2 COMPLETE] Saved {len(final_dataset)} questions → {output_file}")

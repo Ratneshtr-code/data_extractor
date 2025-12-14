@@ -12,6 +12,9 @@ import os
 import json
 from groq import Groq
 
+from dotenv import load_dotenv
+load_dotenv()
+
 SEGMENT_PROMPT_PATH = "phase2/prompts/segment_column.txt"
 
 # Load system prompt
