@@ -1,57 +1,101 @@
 # phase2/dataset_builder.py
+# -------------------------------------------------------------
+# NEW DATASET BUILDER (UPSCAware)
+# -------------------------------------------------------------
+# This module replaces full-column parsing.
+# It now:
+#   1. Loads OCR-cleaned column text
+#   2. Uses UPSCQuestionBlockDetector →  question blocks
+#   3. Calls BlockParser per block (LLM)
+#   4. Sanitizes JSON
+#   5. Normalizes options
+#   6. Classifies question format
+#   7. Assigns stable IDs
+#   8. Produces final dataset list
+# -------------------------------------------------------------
 
 import json
-from phase2.parser_groq import parse_question_block
-from phase2.formatter import clean_ocr_text
-from phase2.question_extractor import split_into_questions
+import os
+import glob
+
+from utils.upsc_question_block_detector import detect_question_blocks
+from phase2.block_parser import parse_block
 from phase2.json_sanitizer import sanitize_and_load
+from phase2.option_normalizer import normalize_options
+from phase2.format_classifier import classify_format
+from phase2.id_gen import make_id
+from phase2.segmenter_groq import segment_column
 
 
 def build_dataset(ocr_files, output_file):
-    dataset = []
-    q_counter = 1
+
+    final_dataset = []
 
     for file_path in ocr_files:
 
-        # -----------------------------
-        # 1. Load OCR raw text
-        # -----------------------------
+        # Extract tag like "UPSC_2025_p1_c1"
+        tag = os.path.basename(file_path).replace(".txt", "")
+
         with open(file_path, "r", encoding="utf-8") as f:
-            raw_text = f.read()
+            col_text = f.read().strip()
 
-        # -----------------------------
-        # 2. Split into question blocks
-        # -----------------------------
-        question_blocks = split_into_questions(raw_text)
+        # ---------------------------------------------------------
+        # STEP 1: Detect individual UPSC question blocks
+        # ---------------------------------------------------------
+        blocks = segment_column(col_text, tag)
 
-        # -----------------------------
-        # 3. Clean block formatting
-        # -----------------------------
-        cleaned_blocks = []
-        for qb in question_blocks:
-            cleaned_blocks.extend(clean_ocr_text(qb))
+        if not blocks:
+            print(f"[WARNING] No blocks detected in: {file_path}")
+            continue
 
-        # -----------------------------
-        # 4. Parse each question using Groq
-        # -----------------------------
-        for cb in cleaned_blocks:
+        # ---------------------------------------------------------
+        # STEP 2: Parse each block with Groq LLM
+        # ---------------------------------------------------------
+        for idx, block in enumerate(blocks, start=1):
 
-            raw_response = parse_question_block(cb, q_counter)
+            print(f"[LLM] Parsing block {idx} for {tag}...")
 
-            parsed_json = sanitize_and_load(raw_response, q_counter)
+            raw_json = parse_block(block, f"{tag}_block{idx}")
 
-            dataset.append({
-                "id": f"q_{q_counter}",
-                "raw": cb,
-                "parsed": parsed_json
-            })
+            # -----------------------------------------------------
+            # STEP 3: Sanitize the raw JSON output
+            # -----------------------------------------------------
+            parsed = sanitize_and_load(raw_json)
 
-            q_counter += 1
+            if not isinstance(parsed, dict):
+                print(f"[ERROR] Block {idx} → Invalid LLM output → Skipping")
+                continue
 
-    # -----------------------------
-    # 5. Save final dataset
-    # -----------------------------
+            # -----------------------------------------------------
+            # STEP 4: Normalize options
+            # -----------------------------------------------------
+            if "options" in parsed and parsed["options"]:
+                parsed["options"] = normalize_options(parsed["options"])
+            else:
+                parsed["options"] = {}
+
+            # -----------------------------------------------------
+            # STEP 5: Classify question format (fallback)
+            # -----------------------------------------------------
+            if not parsed.get("format"):
+                parsed["format"] = classify_format(parsed.get("question", ""))
+
+            # -----------------------------------------------------
+            # STEP 6: Add metadata
+            # -----------------------------------------------------
+            parsed["id"] = make_id(tag, idx)
+
+            # user asked to omit question number → ensure removed
+            parsed.pop("number", None)
+
+            final_dataset.append(parsed)
+
+    # ---------------------------------------------------------
+    # STEP 7: Save final dataset JSON
+    # ---------------------------------------------------------
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
     with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(dataset, f, indent=2, ensure_ascii=False)
+        json.dump(final_dataset, f, indent=2, ensure_ascii=False)
 
-    print(f"[DATASET] Saved {len(dataset)} questions → {output_file}")
+    print(f"[PHASE 2 COMPLETE] Saved {len(final_dataset)} questions → {output_file}")

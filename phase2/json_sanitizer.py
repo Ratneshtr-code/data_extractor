@@ -1,49 +1,42 @@
+# phase2/json_sanitizer.py
+# ------------------------------------------------------
+# FIXED JSON SANITIZER
+# ------------------------------------------------------
+# The old version corrupted JSON by replacing newlines.
+# This version:
+#   - Removes control characters safely
+#   - Extracts the JSON object/array from the LLM output
+#   - Returns parsed dict or list
+#   - Never rewrites line breaks
+# ------------------------------------------------------
+
 import json
 import re
-from phase2.parser_groq import request_json_repair
 
 
-def sanitize_and_load(json_str, block_id="unknown"):
-    """
-    Attempts to clean + parse Groq JSON.
-    If it fails, automatically requests repair from Groq.
-    """
+def sanitize_and_load(s: str):
+    if not isinstance(s, str):
+        return None
+
+    # Remove control characters (safe)
+    s = re.sub(r"[\x00-\x09\x0B-\x1F\x7F]", "", s)
+
+    # Detect JSON start (object or array)
+    start_obj = s.find("{")
+    start_arr = s.find("[")
+    start = min(x for x in [start_obj, start_arr] if x != -1)
+
+    # Detect JSON end (object or array)
+    end_obj = s.rfind("}")
+    end_arr = s.rfind("]")
+    end = max(end_obj, end_arr)
+
+    if start == -1 or end == -1 or end <= start:
+        return None
+
+    json_str = s[start : end + 1].strip()
+
     try:
-        return _try_parse(json_str)
-    except Exception:
-        # Request repair
-        repaired = request_json_repair(json_str, block_id)
-
-        try:
-            return _try_parse(repaired)
-        except Exception:
-            # Last fallback: never crash
-            return {
-                "extracted_successfully": False,
-                "error": "Could not repair JSON",
-                "raw_text_excerpt": json_str[:200],
-            }
-
-
-def _try_parse(json_str):
-    """
-    Internal cleaning + parsing logic.
-    """
-    # Remove forbidden control characters
-    json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', json_str)
-
-    # Ensure escaped newlines inside all quoted strings
-    def fix_newlines(match):
-        text = match.group(1)
-        text = text.replace("\n", "\\n")
-        return f"\"{text}\""
-
-    json_str = re.sub(r'"([^"]*?)"', fix_newlines, json_str, flags=re.DOTALL)
-
-    # Trim prefix/suffix outside the JSON braces
-    start = json_str.find("{")
-    end = json_str.rfind("}")
-    if start != -1 and end != -1:
-        json_str = json_str[start : end + 1]
-
-    return json.loads(json_str)
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        return None

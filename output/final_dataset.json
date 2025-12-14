@@ -1,0 +1,74 @@
+[
+  {
+    "question": "With reference to investments, consider the following: I. Bonds, II. Hedge Funds, III. Stocks, IV. Venture Capital. How many of the above are treated as Alternative Investment Funds?",
+    "options": {
+      "A": "Only one",
+      "B": "Only two",
+      "C": "Only three",
+      "D": "ll the four"
+    },
+    "format": "single",
+    "extracted_successfully": true,
+    "id": "UPSC_2025_p1_c1_q1"
+  },
+  {
+    "question": "Which of the following are the sources of income for the Reserve Bank of India? I. Buying and selling Government bonds II. Buying and selling currency III. Pension fund management IV. Lending to private companies V. Printing and distributing currency notes Select the correct answer using the code given below",
+    "options": {
+      "A": "I and II only",
+      "B": "II, III and IV",
+      "C": "I, III, IV and V",
+      "D": "I, II and V"
+    },
+    "format": "single",
+    "extracted_successfully": true,
+    "id": "UPSC_2025_p1_c1_q2"
+  },
+  {
+    "question": "With reference to the Government of India, consider the following information: Organization Some of its functions works under I. Directorate of Enforcement: Internal Security and Economic Offenders, Ministry of Home Affairs, Enforcement of the Fugitive Offenders Act, 2018 II. Directorate of Enforcement: Enforces the provisions of the Customs Act, 1962, Department of Revenue, Ministry of Finance III. Directorate General of big data and Systems analytics to assist tax officers for better policy and nabbing tax evaders. In how many of the above rows is the information correctly matched?",
+    "options": {
+      "A": "Only one",
+      "B": "Only two",
+      "C": "ll the three",
+      "D": "None"
+    },
+    "format": "single",
+    "extracted_successfully": true,
+    "id": "UPSC_2025_p1_c1_q3"
+  },
+  {
+    "question": "Consider the following statements: I. The Reserve Bank of India mandates all the listed companies in India to submit a Business Responsibility and Sustainability Report (BRSR) II. In India, a company submitting a BRSR makes disclosures in the report that are largely non-financial in nature. Which of the statements given above is/are correct?",
+    "options": {
+      "A": "I only",
+      "B": "II only",
+      "C": "oth I and II",
+      "D": "Neither I nor II"
+    },
+    "format": "statement",
+    "extracted_successfully": true,
+    "id": "UPSC_2025_p1_c2_q1"
+  },
+  {
+    "question": "Consider the following statements: Statement I. In India, income from allied agricultural activities like poultry farming and wool rearing in rural areas is exempted from any tax. Statement II. In India, rural agricultural land is not considered a capital asset under the provisions of the Income-tax Act, 1961. Which one of the following is correct in respect of the above statements?",
+    "options": {
+      "A": "oth Statement I and Statement II are correct and Statement II explains Statement I",
+      "B": "oth Statement I and Statement II are correct but Statement II does not explain Statement I",
+      "C": "Statement I is correct but Statement II is not correct",
+      "D": "Statement I is not correct but Statement II is correct"
+    },
+    "format": "statement",
+    "extracted_successfully": true,
+    "id": "UPSC_2025_p1_c2_q2"
+  },
+  {
+    "question": "Consider the following statements: I. India has joined the Minerals Security Partnership as a member. II. India is a resource-rich country in all the 30 critical minerals that it has identified. III. The Parliament in 2023 has amended the Mines and Minerals (Development and Regulation) Act, 1957, empowering the Central Government to exclusively auction mining lease and composite license for certain critical minerals. Which of the statements given above are correct?",
+    "options": {
+      "A": "I and II only",
+      "B": "II and III only",
+      "C": "I and III only",
+      "D": "I, II and III"
+    },
+    "format": "statement",
+    "extracted_successfully": true,
+    "id": "UPSC_2025_p1_c2_q3"
+  }
+]

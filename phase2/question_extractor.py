@@ -1,19 +1,24 @@
 # phase2/question_extractor.py
+# ------------------------------------------------------
+# BACKWARD COMPATIBILITY WRAPPER
+# ------------------------------------------------------
+# The old logic used regex on question numbers. That fails
+# on UPSC PDFs due to OCR distortion.
+#
+# We now use:
+#   utils/upsc_question_block_detector.py
+#
+# This module keeps the same function signature so that
+# no other part of the pipeline breaks.
+# ------------------------------------------------------
 
-import re
+from utils.upsc_question_block_detector import detect_question_blocks
 
-def split_into_questions(column_text):
+
+def split_into_questions(column_text: str):
     """
-    Input: raw OCR text from one column
-    Output: list of block strings; each block contains one full question
+    Wrapper for backward compatibility.
+    New implementation uses UPSCQuestionBlockDetector.
     """
 
-    # Normalize spacing
-    text = column_text.replace("\r", "")
-
-    # Split using question numbers (1., 2., 12., etc.)
-    parts = re.split(r"(?m)(?=^\d+\.)", text)
-
-    blocks = [p.strip() for p in parts if p.strip()]
-
-    return blocks
+    return detect_question_blocks(column_text)

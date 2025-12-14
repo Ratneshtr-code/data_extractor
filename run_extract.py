@@ -2,46 +2,67 @@
 
 import os
 import shutil
-
 from utils.pdf_converter import pdf_to_images
 from layout.column_splitter import split_into_columns
-from ocr.paddle_ocr_engine import OCREngine
+from ocr.easyocr_engine import OCREngine
+from ocr.post_cleaner import clean_ocr_block
 
-def ensure_output_dirs():
+
+def ensure_dirs():
     os.makedirs("output/images", exist_ok=True)
     os.makedirs("output/columns", exist_ok=True)
     os.makedirs("output/ocr_raw", exist_ok=True)
+    os.makedirs("output/ocr_clean", exist_ok=True)
+
 
 def clean_output():
     if os.path.exists("output"):
         shutil.rmtree("output")
 
+
+def parse_filename(pdf_name):
+    """
+    EXAM_YEAR.pdf
+    Example: UPSC_2025.pdf → exam="UPSC", year=2025
+    """
+    base = pdf_name.replace(".pdf", "")
+    exam, year = base.split("_")
+    return exam, int(year)
+
+
 def run(pdf_name):
     clean_output()
-    ensure_output_dirs()
+    ensure_dirs()
+
+    exam, year = parse_filename(pdf_name)
 
     pdf_path = f"input_pdfs/{pdf_name}"
-    if not os.path.exists(pdf_path):
-        print(f"[ERROR] PDF not found: {pdf_path}")
-        return
+    imgs = pdf_to_images(pdf_path, "output/images", dpi=600)
 
-    img_paths = pdf_to_images(pdf_path, "output/images", dpi=600)
-    ocr_engine = OCREngine()
+    ocr = OCREngine()
 
-    for page_idx, img in enumerate(img_paths):
-        col_folder = f"output/columns/page_{page_idx+1}"
-        col_paths = split_into_columns(img, col_folder)
+    for page_idx, img in enumerate(imgs, start=1):
 
-        for col_idx, col_img in enumerate(col_paths):
-            print(f"[OCR] Page {page_idx+1}, Column {col_idx+1}")
-            text = ocr_engine.extract_text(col_img)
+        col_folder = f"output/columns/page_{page_idx}"
+        columns = split_into_columns(img, col_folder)
 
-            out_path = f"output/ocr_raw/page_{page_idx+1}_col_{col_idx+1}.txt"
-            with open(out_path, "w", encoding="utf-8") as f:
-                f.write(text)
+        for col_idx, col_img in enumerate(columns, start=1):
 
-    print("\n[INFO] Phase-1 complete with improved OCR & column splitting.")
+            print(f"[OCR] Page {page_idx} Column {col_idx}")
+
+            raw = ocr.extract_text(col_img)
+            clean = clean_ocr_block(raw)
+
+            meta_tag = f"{exam}_{year}_p{page_idx}_c{col_idx}"
+
+            with open(f"output/ocr_raw/{meta_tag}.txt", "w", encoding="utf-8") as f:
+                f.write(raw)
+
+            with open(f"output/ocr_clean/{meta_tag}.txt", "w", encoding="utf-8") as f:
+                f.write(clean)
+
+    print("\n[PHASE 1 COMPLETE] Clean OCR saved.")
 
 
 if __name__ == "__main__":
-    run("test.pdf")   # Change this to your filename
+    run("UPSC_2025.pdf")
