@@ -1,0 +1,112 @@
+[
+  {
+    "question": "Consider the following statements\n Statement I : The atmosphere is heated more by incoming solar radiation than by terrestrial radiation. Statement II : Carbon dioxide and other greenhouse gases in the atmosphere are absorbers of wave radiation. Which one of the following is correct in respect of the above statements ?",
+    "options": {
+      "A": "Both Statement-I and Statement-II are correct and Statement-II explains Statement-I",
+      "B": "Both Statement-I and Statement-II are correct, but Statement-II does not explain Statement-I",
+      "C": "Statement-I is correct, but Statement-II is incorrect",
+      "D": "Statement-I is incorrect, but Statement-II is correct"
+    },
+    "format": "statement",
+    "subject": "Geography",
+    "topic": "Physical Geography - Climatology",
+    "sub_topic": null,
+    "keywords": [
+      "atmosphere",
+      "solar radiation",
+      "greenhouse gases"
+    ],
+    "extracted_successfully": true,
+    "correct_answer": null,
+    "is_multi_correct": false,
+    "id": "UPSC_2024_p1_c1_q1"
+  },
+  {
+    "question": "Consider the following statements\n Statement I : Thickness of the troposphere at the equator is much greater as compared to Statement II At the equator, heat is transported to great heights by strong convectional currents. Which one of the following is correct in respect of the above statements ?",
+    "options": {
+      "A": "Both Statement-I and Statement-II are correct and Statement-II explains Statement-I",
+      "B": "Both Statement-I and Statement-II are correct, but Statement-II does not explain Statement-I",
+      "C": "Statement-I is correct, but Statement-II is incorrect",
+      "D": "Statement-I is incorrect, but Statement-II is correct"
+    },
+    "format": "statement",
+    "subject": "Geography",
+    "topic": "Physical Geography - Climatology",
+    "sub_topic": null,
+    "keywords": [
+      "troposphere",
+      "equator",
+      "convectional currents"
+    ],
+    "extracted_successfully": true,
+    "correct_answer": null,
+    "is_multi_correct": false,
+    "id": "UPSC_2024_p1_c1_q2"
+  },
+  {
+    "question": "Consider the following:\n1. Pyroclastic debris,\n2. Ash and dust,\n3. Nitrogen compounds, Sulphur compounds. How many of the above are products of volcanic eruptions?",
+    "options": {
+      "A": "Only one",
+      "B": "Only two",
+      "C": "Only three",
+      "D": "ll"
+    },
+    "format": "statement",
+    "subject": "Geography",
+    "topic": "Physical Geography - Geomorphology",
+    "sub_topic": null,
+    "keywords": [
+      "volcanic eruptions",
+      "Pyroclastic debris",
+      "Ash and dust"
+    ],
+    "extracted_successfully": true,
+    "correct_answer": null,
+    "is_multi_correct": false,
+    "id": "UPSC_2024_p1_c2_q1"
+  },
+  {
+    "question": "Which of the following is/are correct inference(s) from isothermal maps in the month of January ?\n1. The isotherms deviate to the north over the ocean and to the south over the continent.\n2. The presence of cold ocean currents, Gulf Stream and North Atlantic Drift make the North Atlantic Ocean colder and the isotherms bend towards the north:",
+    "options": {
+      "A": "1 only",
+      "B": "2 only",
+      "C": "Both 1 and 2",
+      "D": "Neither 1 nor 2"
+    },
+    "format": "statement",
+    "subject": "Geography",
+    "topic": "Physical Geography - Climatology",
+    "sub_topic": null,
+    "keywords": [
+      "isothermal maps",
+      "Gulf Stream",
+      "North Atlantic Drift"
+    ],
+    "extracted_successfully": true,
+    "correct_answer": null,
+    "is_multi_correct": false,
+    "id": "UPSC_2024_p1_c2_q2"
+  },
+  {
+    "question": "Which of the following countries are well known as the largest cocoa producers in the world ?",
+    "options": {
+      "A": "lgeria and Morocco",
+      "B": "otswana and Namibia",
+      "C": "ote d'Ivoire and Ghana",
+      "D": "Madagascar and Mozambique"
+    },
+    "format": "single",
+    "subject": "Geography",
+    "topic": "World Geography - Geographical Features and Natural Resources",
+    "sub_topic": null,
+    "keywords": [
+      "Cote d'Ivoire",
+      "Ghana",
+      "cocoa"
+    ],
+    "extracted_successfully": true,
+    "correct_answer": null,
+    "is_multi_correct": false,
+    "id": "UPSC_2024_p1_c2_q3"
+  }
+]

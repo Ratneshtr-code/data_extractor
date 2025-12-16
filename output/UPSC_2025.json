@@ -1,0 +1,129 @@
+[
+  {
+    "question": "With reference to investments, consider the following\nI. Bonds II: Hedge Funds\nIII. Stocks\nIV. Venture Capital How many of the above are treated as Alternative Investment Funds?",
+    "options": {
+      "A": "Only one",
+      "B": "Only two",
+      "C": "Only three",
+      "D": "All the four"
+    },
+    "format": "statement",
+    "subject": "Indian Economy",
+    "topic": "Economic Institutions, Laws and Policies",
+    "sub_topic": null,
+    "keywords": [
+      "Alternative Investment Funds",
+      "Hedge Funds",
+      "Venture Capital"
+    ],
+    "extracted_successfully": true,
+    "correct_answer": null,
+    "is_multi_correct": false,
+    "id": "UPSC_2025_p1_c1_q1"
+  },
+  {
+    "question": "Which of the following are the sources of income for the Reserve Bank of India?\nI. Buying and selling Government bonds\nII. Buying and selling currency\nIII. Pension fund management\nIV. Lending to private companies\nV. Printing and distributing currency notes",
+    "options": {
+      "A": "I and II only",
+      "B": "II, III and IV",
+      "C": "I, III, IV and V",
+      "D": "I, II and V"
+    },
+    "format": "statement",
+    "subject": "Indian Economy",
+    "topic": "RBI Functions - Money Supply, Monetary Policy, Forex Mgt & Balance of Payment",
+    "sub_topic": "RBI income sources",
+    "keywords": [
+      "Reserve Bank of India",
+      "Government bonds"
+    ],
+    "extracted_successfully": true,
+    "correct_answer": null,
+    "is_multi_correct": false,
+    "id": "UPSC_2025_p1_c1_q2"
+  },
+  {
+    "question": "With reference to the Government of India, consider the following information Organization Some of its It works functions under I Directorate of Enforcement Internal Enforcement of the Security Fugitive Division-I, Economic Ministry of Offenders Home Affairs | Act;, 2018 II:  Directorate of Enforces the Department Revenue Provisions of the Customs Act,_1962 Finance III. Directorate Carrying out Department General of big data of Revenue, Systems analytics to Ministry of Finance and Data Management assist tax officers for better policy and nabbing tax evaders In how many of the above rows is the information correctly matched?",
+    "options": {
+      "A": "Only one",
+      "B": "Only two",
+      "C": "All the three",
+      "D": "None"
+    },
+    "format": "table",
+    "subject": "Indian Polity",
+    "topic": "Various Constitutional & Non-Constitutional Posts and Bodies",
+    "sub_topic": null,
+    "keywords": [
+      "Directorate of Enforcement",
+      "Ministry of Home Affairs",
+      "Customs Act"
+    ],
+    "extracted_successfully": true,
+    "correct_answer": null,
+    "is_multi_correct": false,
+    "id": "UPSC_2025_p1_c1_q3"
+  },
+  {
+    "question": "Consider the following statements\n I The Reserve Bank of India mandates all the listed companies in India to submit a Business Responsibility and Sustainability Report (BRSR) II In India, a company submitting a BRSR makes disclosures in the report that are largely non-financial in nature. Which of the statements given above is/are correct?",
+    "options": {
+      "A": "I only",
+      "B": "II only",
+      "C": "Both I and II",
+      "D": "Neither I nor II"
+    },
+    "format": "statement",
+    "subject": "Indian Economy",
+    "topic": "Economic Institutions, Laws and Policies",
+    "sub_topic": null,
+    "keywords": [
+      "Reserve Bank of India",
+      "Business Responsibility and Sustainability Report"
+    ],
+    "extracted_successfully": true,
+    "correct_answer": null,
+    "is_multi_correct": false,
+    "id": "UPSC_2025_p1_c2_q1"
+  },
+  {
+    "question": "Consider the following statements\n Statement I In India, income from allied agricultural activities like poultry farming and wool rearing in rural areas is exempted from any tax Statement II In India, rural agricultural land is not considered a capital asset under the provisions of the Income-tax Act,\n1961. Which one of the following is correct in respect of the above statements?",
+    "options": {
+      "A": "Both Statement I and Statement II are correct and Statement II explains Statement I",
+      "B": "Both Statement I and Statement II are correct but Statement II does not explain Statement I",
+      "C": "Statement I is correct but Statement II is not correct",
+      "D": "Statement I is not correct but Statement II is correct"
+    },
+    "format": "statement",
+    "subject": "Indian Economy",
+    "topic": "Indian Taxation System",
+    "sub_topic": null,
+    "keywords": [
+      "Income-tax Act, 1961"
+    ],
+    "extracted_successfully": true,
+    "correct_answer": null,
+    "is_multi_correct": false,
+    "id": "UPSC_2025_p1_c2_q2"
+  },
+  {
+    "question": "Consider the following statements\nI. India has joined the Minerals Security Partnership as a member.\nII. India is a resource-rich country in all the 30 critical minerals that it has identified.\nIII. The Parliament in 2023 has amended the Mines and Minerals (Development and Regulation) Act; 1957 empowering the Central Government to exclusively auction mining lease and composite license for certain critical minerals. Which of the statements given above are correct?",
+    "options": {
+      "A": "I and II only",
+      "B": "II and III only",
+      "C": "I and III only",
+      "D": "I, II and III"
+    },
+    "format": "statement",
+    "subject": "Indian Economy",
+    "topic": "Economic Institutions, Laws and Policies",
+    "sub_topic": null,
+    "keywords": [
+      "Minerals Security Partnership",
+      "Mines and Minerals (Development and Regulation) Act"
+    ],
+    "extracted_successfully": true,
+    "correct_answer": null,
+    "is_multi_correct": false,
+    "id": "UPSC_2025_p1_c2_q3"
+  }
+]
