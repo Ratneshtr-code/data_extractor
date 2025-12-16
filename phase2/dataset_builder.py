@@ -1,6 +1,6 @@
 # phase2/dataset_builder.py
 # -------------------------------------------------------------
-# NEW UPSC-AWARE DATASET BUILDER (FINAL PRODUCTION VERSION)
+# UPSC-AWARE DATASET BUILDER (FINAL PRODUCTION VERSION)
 # -------------------------------------------------------------
 # Pipeline:
 #   1. Reads cleaned OCR text (Phase 1 output)
@@ -18,6 +18,7 @@
 
 import json
 import os
+import re
 
 from phase2.segmenter_groq import segment_column
 from phase2.block_parser import parse_block
@@ -28,45 +29,58 @@ from phase2.table_formatter import TableFormatter
 from phase2.ocr_fixer import SafeOCRFixer
 from phase2.id_gen import make_id
 
-
 format_classifier = FormatClassifier()
 table_formatter = TableFormatter()
 ocr_fixer = SafeOCRFixer()
 
 
+# -----------------------------------------------------
+# INTERNAL HELPERS
+# -----------------------------------------------------
+
 def _apply_linebreaks(text: str) -> str:
-    """
-    Insert clean UI-friendly line breaks for statement-format questions.
-    Does NOT change wording.
-    """
+    """Beautify statement questions with consistent line breaks."""
+
     if not text:
         return text
 
-    # Create newline before Roman numerals
-    text = text.replace(" I.", "\nI.")
-    text = text.replace(" II.", "\nII.")
-    text = text.replace(" III.", "\nIII.")
-    text = text.replace(" IV.", "\nIV.")
-    text = text.replace(" V.", "\nV.")
+    # Normalize "Statement I" / "Statement II"
+    text = re.sub(r"Statement\s*[-:]?\s*I\b", "Statement I", text, flags=re.IGNORECASE)
+    text = re.sub(r"Statement\s*[-:]?\s*II\b", "Statement II", text, flags=re.IGNORECASE)
 
-    # Ensure question ends cleanly
+    # Add newline after this phrase:
+    text = re.sub(
+        r"(consider the following statements[:]?)",
+        r"\1\n",
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # Newline before Statement I/II
+    text = re.sub(r"\s*(Statement I\b)", r"\n\1", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s*(Statement II\b)", r"\n\1", text, flags=re.IGNORECASE)
+
+    # Roman numerals (I., II., III.) we create newlines before them
+    text = re.sub(r"(?<!Statement )\s+\b(I|II|III|IV|V)\.", r"\n\1.", text)
+
+    # Newline before numeric lists
+    text = re.sub(r"\s*(\d+\.)", r"\n\1", text)
+
+    # Remove extra blank lines
+    text = re.sub(r"\n{2,}", "\n", text)
+
     return text.strip()
 
 
 def _postprocess_question(q_text: str, q_format: str) -> str:
-    """
-    Applies formatting transformations to question text.
-    """
+    """Beautify question text based on its format."""
 
-    # Beautify tables
     if q_format == "table":
         q_text = table_formatter.format(q_text)
 
-    # Insert line breaks for statements
     if q_format == "statement":
         q_text = _apply_linebreaks(q_text)
 
-    # Insert line breaks for assertion–reason
     if q_format == "assertion":
         q_text = q_text.replace("Reason (R):", "\nReason (R):")
 
@@ -74,9 +88,7 @@ def _postprocess_question(q_text: str, q_format: str) -> str:
 
 
 def _postprocess_options(options: dict) -> dict:
-    """
-    Normalize and fix option OCR glitches.
-    """
+    """OCR fixes for option text."""
 
     cleaned = {}
 
@@ -85,13 +97,15 @@ def _postprocess_options(options: dict) -> dict:
             cleaned[key] = ""
             continue
 
-        # Fix OCR glitches safely
         fixed = ocr_fixer.fix_option(val)
-
         cleaned[key] = fixed.strip()
 
     return cleaned
 
+
+# -----------------------------------------------------
+# MAIN PIPELINE
+# -----------------------------------------------------
 
 def build_dataset(ocr_files, output_file):
 
@@ -99,7 +113,6 @@ def build_dataset(ocr_files, output_file):
 
     for file_path in ocr_files:
 
-        # Produce clean tag: UPSC_2025_p1_c1
         tag = os.path.basename(file_path).replace(".txt", "")
 
         with open(file_path, "r", encoding="utf-8") as f:
@@ -116,7 +129,7 @@ def build_dataset(ocr_files, output_file):
             continue
 
         # ---------------------------------------------------------
-        # STEP 2: PARSE EACH BLOCK USING BLOCK PARSER LLM
+        # STEP 2: PARSE EACH BLOCK USING LLM
         # ---------------------------------------------------------
         for idx, block in enumerate(blocks, start=1):
 
@@ -125,7 +138,7 @@ def build_dataset(ocr_files, output_file):
             raw_json = parse_block(block, f"{tag}_block{idx}")
 
             # -----------------------------------------------------
-            # STEP 3: CLEAN JSON OUTPUT
+            # STEP 3: SANITIZE LLM JSON
             # -----------------------------------------------------
             parsed = sanitize_and_load(raw_json)
 
@@ -142,11 +155,17 @@ def build_dataset(ocr_files, output_file):
             options = normalize_options(options)
 
             # -----------------------------------------------------
-            # STEP 5: CLASSIFY QUESTION FORMAT
+            # STEP 5: FORMAT CLASSIFICATION (ALWAYS OVERRIDE LLM)
             # -----------------------------------------------------
-            q_format = parsed.get("format")
-            if not q_format:
-                q_format = format_classifier.classify(q_text)
+            llm_format_guess = parsed.get("format", "").strip().lower()
+            classified_format = format_classifier.classify(q_text)
+
+            # FINAL — classifier ALWAYS wins
+            q_format = classified_format
+
+            # Save debug info
+            parsed["llm_format_guess"] = llm_format_guess
+            parsed["format"] = q_format
 
             # -----------------------------------------------------
             # STEP 6: POSTPROCESS QUESTION TEXT
@@ -154,7 +173,7 @@ def build_dataset(ocr_files, output_file):
             q_text = _postprocess_question(q_text, q_format)
 
             # -----------------------------------------------------
-            # STEP 7: POSTPROCESS OPTIONS (OCR FIXES)
+            # STEP 7: POSTPROCESS OPTIONS
             # -----------------------------------------------------
             options = _postprocess_options(options)
 
@@ -163,10 +182,8 @@ def build_dataset(ocr_files, output_file):
             # -----------------------------------------------------
             parsed["question"] = q_text
             parsed["options"] = options
-            parsed["format"] = q_format
             parsed["id"] = make_id(tag, idx)
 
-            # Remove question number (never needed)
             parsed.pop("number", None)
 
             final_dataset.append(parsed)

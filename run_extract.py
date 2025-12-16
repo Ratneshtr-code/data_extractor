@@ -6,6 +6,7 @@
 
 import os
 import glob
+import shutil
 from utils.pdf_converter import pdf_to_images
 from layout.column_splitter import split_into_columns
 from ocr.easyocr_engine import OCREngine
@@ -18,6 +19,25 @@ def ensure_dirs():
     os.makedirs("output/ocr_raw", exist_ok=True)
     os.makedirs("output/ocr_clean", exist_ok=True)
 
+def clean_output_dirs():
+    folders = [
+        "output/images",
+        "output/columns",
+        "output/ocr_raw",
+        "output/ocr_clean",
+        "logs/groq_segment_raw"
+    ]
+
+    for folder in folders:
+        if os.path.exists(folder):
+            shutil.rmtree(folder, ignore_errors=True)
+
+    # recreate directories
+    os.makedirs("output/images", exist_ok=True)
+    os.makedirs("output/columns", exist_ok=True)
+    os.makedirs("output/ocr_raw", exist_ok=True)
+    os.makedirs("output/ocr_clean", exist_ok=True)
+    os.makedirs("logs/groq_segment_raw", exist_ok=True)
 
 def parse_filename(pdf_name):
     """
@@ -82,6 +102,9 @@ def process_pdf(pdf_name):
 
 
 def run_all_pdfs():
+    # CLEAN OUTPUT FIRST
+    clean_output_dirs()
+
     pdf_files = sorted(glob.glob("input_pdfs/*.pdf"))
 
     if not pdf_files:
