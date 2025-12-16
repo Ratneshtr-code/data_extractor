@@ -1,76 +1,114 @@
 # phase2/block_parser.py
 # ------------------------------------------------------
-# Per-Block LLM Parser
+# UPSC / PSC / EXAM-AWARE BLOCK PARSER
 # ------------------------------------------------------
-# Input  : One UPSC question block (string)
-# Output : JSON representing one cleaned, structured question
-#
-# This replaces the old "parse_full_column" mechanism.
+# - Parses ONE question block using Groq LLM
+# - Dynamically injects exam syllabus into system prompt
+# - Enforces syllabus-bounded subject/topic tagging
 # ------------------------------------------------------
 
 import os
-import json
 from groq import Groq
 from dotenv import load_dotenv
 
+from utils.syllabus_loader import load_syllabus
+
+# ------------------------------------------------------
+# ENV + CLIENT
+# ------------------------------------------------------
 load_dotenv()
 
-# Load system prompt
-SYSTEM_PROMPT_FILE = "phase2/prompts/parse_block_system.txt"
-
-with open(SYSTEM_PROMPT_FILE, "r", encoding="utf-8") as f:
-    SYSTEM_PROMPT = f.read()
-
-# Load environment API key
 API_KEY = os.getenv("GROQ_API_KEY")
 if not API_KEY:
     raise ValueError("Missing GROQ_API_KEY")
 
 client = Groq(api_key=API_KEY)
 
+MODEL = "llama-3.3-70b-versatile"
 
-class BlockParser:
+# ------------------------------------------------------
+# LOAD SYSTEM PROMPT TEMPLATE
+# ------------------------------------------------------
+PROMPT_PATH = "phase2/prompts/parse_block_system.txt"
 
-    def __init__(self):
-        self.model_name = "llama-3.3-70b-versatile"
+with open(PROMPT_PATH, "r", encoding="utf-8") as f:
+    PARSE_BLOCK_SYSTEM_PROMPT = f.read()
 
-    def parse_block(self, block_text: str, tag: str):
-        """
-        Parse a single question block into JSON using the Groq LLM.
-        """
+# ------------------------------------------------------
+# HELPERS
+# ------------------------------------------------------
 
-        user_prompt = (
-            "QUESTION BLOCK:\n"
-            "----------------\n"
-            f"{block_text.strip()}"
+def _extract_exam_from_tag(tag: str) -> str:
+    """
+    tag example:
+      UPSC_2025_p1_c1_block3
+
+    returns:
+      UPSC
+    """
+    parts = tag.split("_")
+
+    exam_parts = []
+    for p in parts:
+        if p.isdigit():   # year detected
+            break
+        exam_parts.append(p)
+
+    if not exam_parts:
+        raise ValueError(f"Cannot extract exam from tag: {tag}")
+
+    return "_".join(exam_parts)
+
+
+
+# ------------------------------------------------------
+# MAIN ENTRY
+# ------------------------------------------------------
+
+def parse_block(block_text: str, tag: str) -> str:
+    """
+    Sends ONE question block to Groq LLM with
+    dynamically injected syllabus.
+
+    Returns:
+        Raw LLM response (string)
+    """
+
+    # -------------------------------
+    # DETERMINE EXAM
+    # -------------------------------
+    exam = _extract_exam_from_tag(tag)
+
+    # -------------------------------
+    # LOAD SYLLABUS
+    # -------------------------------
+    try:
+        syllabus_text = load_syllabus(exam)
+    except FileNotFoundError as e:
+        raise RuntimeError(
+            f"[SYLLABUS ERROR] {e}\n"
+            f"Expected file: syllabus/{exam}.json"
         )
 
-        response = client.chat.completions.create(
-            model=self.model_name,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt}
-            ],
-            max_tokens=2048,
-            temperature=0,
-        )
+    # -------------------------------
+    # INJECT SYLLABUS INTO PROMPT
+    # -------------------------------
+    system_prompt = PARSE_BLOCK_SYSTEM_PROMPT.replace(
+        "{{SYLLABUS}}",
+        syllabus_text
+    )
 
-        content = response.choices[0].message.content
+    # -------------------------------
+    # CALL GROQ LLM
+    # -------------------------------
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": block_text}
+        ],
+        temperature=0,
+        max_tokens=2048
+    )
 
-        # optional logging
-        self.log_raw_response(tag, content)
-
-        return content
-
-
-    def log_raw_response(self, tag, content):
-        os.makedirs("logs/groq_raw_blocks", exist_ok=True)
-        safe_tag = tag.replace("/", "_").replace("\\", "_")
-        path = f"logs/groq_raw_blocks/{safe_tag}.txt"
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-
-
-# convenience function
-def parse_block(block_text: str, tag: str):
-    return BlockParser().parse_block(block_text, tag)
+    return response.choices[0].message.content
