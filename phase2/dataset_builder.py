@@ -7,6 +7,7 @@ import json
 import os
 import re
 
+from utils.upsc_text_reconstructor import reconstruct_text
 from phase2.segmenter_groq import segment_column
 from phase2.block_parser import parse_block
 from phase2.json_sanitizer import sanitize_and_load
@@ -25,6 +26,93 @@ ocr_fixer = SafeOCRFixer()
 # HELPERS
 # -----------------------------------------------------
 
+def _apply_statement_linebreaks(text: str) -> str:
+    if not text:
+        return text
+
+    # -------------------------------------------------
+    # 0. HARD FIX: Split merged "Statement II.n India"
+    # -------------------------------------------------
+    # Handles:
+    #   Statement II.n India
+    #   Statement III.n India
+    #   Statement I.n India
+    #   Statement II In India
+    #
+    # Converts to:
+    #   Statement II.
+    #   In India
+    # -------------------------------------------------
+    text = re.sub(
+        r"Statement\s+([IVX]+)\s*[\.\s]*n\s+",
+        r"\nStatement \1.\nIn ",
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # -------------------------------------------------
+    # 1. Generic OCR fix: broken "In" at line start
+    # -------------------------------------------------
+    text = re.sub(
+        r"(?:(?<=\n)|^)\s*(?:I|l|1)[\.\s]*n\s+([A-Z])",
+        r"In \1",
+        text
+    )
+
+    # -------------------------------------------------
+    # 2. Newline after "Consider the following"
+    # -------------------------------------------------
+    text = re.sub(
+        r"(consider the following statements?|consider the following)",
+        r"\1\n",
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # -------------------------------------------------
+    # 3. Normalize remaining Statement headers
+    # -------------------------------------------------
+    def normalize_statement(match):
+        roman = match.group(1)
+        return f"\nStatement {roman}."
+
+    text = re.sub(
+        r"Statement\s*\n*\s*(I|II|III|IV|V|VI|VII|VIII|IX|X)\b(?!\.)",
+        normalize_statement,
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # -------------------------------------------------
+    # 4. Roman bullets (ONLY if NOT part of Statement)
+    # -------------------------------------------------
+    text = re.sub(
+        r"(?<!Statement )(?<!\n)\b(I|II|III|IV|V|VI|VII|VIII|IX|X)\.",
+        r"\n\1.",
+        text
+    )
+
+    # -------------------------------------------------
+    # 5. Numeric bullets
+    #    Only treat 1- or 2-digit numbers as bullets to
+    #    avoid turning years like "1961." into a new line.
+    # -------------------------------------------------
+    text = re.sub(
+        r"(?<!\n)(\b\d{1,2}\.)",
+        r"\n\1",
+        text
+    )
+
+    # -------------------------------------------------
+    # 6. Cleanup
+    # -------------------------------------------------
+    text = re.sub(r"\n{2,}", "\n\n", text)
+
+    return text.strip()
+
+
+
+
 def _apply_linebreaks(text: str) -> str:
     if not text:
         return text
@@ -40,7 +128,8 @@ def _apply_linebreaks(text: str) -> str:
     text = re.sub(r"Statement\s*[-:]?\s*II\b", "Statement II", text, flags=re.IGNORECASE)
 
     text = re.sub(r"(?<!Statement )\s+\b(I|II|III|IV|V)\.", r"\n\1.", text)
-    text = re.sub(r"\s*(\d+\.)", r"\n\1", text)
+    # Only match 1-2 digit numeric bullets so years like "1961." are not treated as bullets
+    text = re.sub(r"(?m)(^|\n)\s*(\d{1,2}\.)", r"\n\2", text)
 
     text = re.sub(r"\n{2,}", "\n", text)
 
@@ -103,19 +192,25 @@ def build_dataset(ocr_files, output_file):
             # -------------------------------
             # BASIC FIELDS
             # -------------------------------
-            q_text = parsed.get("question", "").strip()
+            raw_q = parsed.get("question", "").strip()
             options = normalize_options(parsed.get("options", {}))
 
-            # -------------------------------
-            # FORMAT — ALWAYS CLASSIFIER WINS
-            # -------------------------------
-            q_format = format_classifier.classify(q_text)
+            # FORMAT DETECTION MUST HAPPEN FIRST
+            q_format = format_classifier.classify(raw_q)
 
-            # -------------------------------
-            # POSTPROCESS TEXT
-            # -------------------------------
-            q_text = _postprocess_question(q_text, q_format)
+            # FORMAT-AWARE RECONSTRUCTION
+            if q_format == "statement":
+                q_text = reconstruct_text(raw_q)
+                q_text = _apply_statement_linebreaks(q_text)
+
+            elif q_format in ("match", "table", "assertion"):
+                q_text = reconstruct_text(raw_q)
+
+            else:
+                q_text = raw_q
+
             options = _postprocess_options(options)
+
 
             # -------------------------------
             # ENSURE REQUIRED TAGS EXIST

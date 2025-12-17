@@ -63,7 +63,18 @@ class UPSCTextReconstructor:
                 continue
 
             # ----------------------------
-            # TABLE HANDLING
+            # FORCE NEW LINE FOR LIST ITEMS
+            # ----------------------------
+            if re.match(r"^(I|II|III|IV|V|VI|VII|VIII|IX|X)\.", line):
+                structured.append(line)
+                continue
+
+            if re.match(r"^\d+\.", line):
+                structured.append(line)
+                continue
+
+            # ----------------------------
+            # TABLE ROW COLLECTION
             # ----------------------------
             if self.is_table_row(line):
                 table_rows.append(line)
@@ -84,51 +95,7 @@ class UPSCTextReconstructor:
                 continue
 
             # ----------------------------
-            # STATEMENT I / II
-            # ----------------------------
-            if self.is_statement_header(line):
-                if buffer:
-                    structured.append(buffer.strip())
-                    buffer = ""
-                header = re.sub(r"[\.\:]+$", "", line)
-                structured.append(f"{header}:")
-                continue
-
-            # ----------------------------
-            # ROMAN (I., II., etc.)
-            # ----------------------------
-            if self.is_roman(line):
-                numeral = line.rstrip(".:") + "."
-                if i + 1 < len(lines) and not self.is_roman(lines[i + 1]):
-                    merged = f"{numeral} {lines[i+1]}"
-                    structured.append(merged)
-                    skip_next = True
-                else:
-                    structured.append(numeral)
-                continue
-
-            # ----------------------------
-            # NUMERIC HEADER → merge with next line
-            # (fixes lonely "1." lines)
-            # ----------------------------
-            if self.is_numeric_header(line):
-                if i + 1 < len(lines):
-                    merged = f"{line.rstrip('.')}. {lines[i+1]}"
-                    structured.append(merged)
-                    skip_next = True
-                else:
-                    structured.append(line)
-                continue
-
-            # ----------------------------
-            # NUMERIC ITEM  e.g. "1. text"
-            # ----------------------------
-            if self.is_numeric_item(line):
-                structured.append(line)
-                continue
-
-            # ----------------------------
-            # NORMAL LINE MERGING
+            # NORMAL LINE MERGE
             # ----------------------------
             if not buffer:
                 buffer = line
@@ -148,6 +115,7 @@ class UPSCTextReconstructor:
         structured = [re.sub(r" {2,}", " ", s) for s in structured]
 
         return "\n".join(structured).strip()
+
 
 
 def reconstruct_text(text: str):

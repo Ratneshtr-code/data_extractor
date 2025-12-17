@@ -1,108 +1,92 @@
 # phase2/format_classifier.py
 # ---------------------------------------------------------
-# UPSC-Aware Question Format Classifier (Final Version)
-# ---------------------------------------------------------
-# Detects:
-#   • single
-#   • statement
-#   • table
-#   • match
-#   • assertion
-#   • paragraph
-#
-# Rules:
-#   - 2+ numeric list items → statement
-#   - 2+ roman list items → statement
-#   - "Statement I" + "Statement II" → statement
-#   - any '|' → table
-#   - long multi-sentence text → paragraph
+# UPSC-Aware Question Format Classifier (FINAL, LOCKED)
 # ---------------------------------------------------------
 
 import re
 
-
 class FormatClassifier:
 
     def classify(self, text: str):
+
         if not text:
             return "single"
 
-        qt = text.lower().strip()
-
-        # ----------------------------------------------------
-        # 1. TABLE DETECTION — detect BEFORE anything else
-        # ----------------------------------------------------
-        # Direct table pipes
-        if "|" in text:
-            return "table"
+        qt = text.lower()
 
         lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
 
-        # Heuristic: If ≥2 lines contain 2+ whitespace-separated chunks → table
-        # Example OCR table flattening: "Directorate   Enforcement   MHA"
-        multi_col_lines = 0
-        for ln in lines:
-            chunks = [c for c in ln.split(" ") if c.strip()]
-            if len(chunks) >= 3:
-                multi_col_lines += 1
-        if multi_col_lines >= 2:
-            return "table"
-
-        # Header cues for tables
-        if any(h in qt for h in ["organization", "functions", "works under", "column i", "column ii"]):
-            # If the block contains multiple short lines, very likely table
-            short_lines = sum(1 for ln in lines if len(ln) < 35)
-            if short_lines >= 3:
-                return "table"
-
         # ----------------------------------------------------
-        # 2. STATEMENT DETECTION (Fix for your Bug #1)
+        # 1. MATCH / PAIRS (HIGHEST PRIORITY)
         # ----------------------------------------------------
 
-        # Count numeric list items (1., 2., 3.)
-        numeric_items = re.findall(r"\b\d+\.", text)
-        if len(numeric_items) >= 2:
-            return "statement"
+        # Rule 0: "correctly matched"
+        if re.search(r"correctly matched", qt):
+            return "match"
 
-        # Count Roman numerals
-        roman_items = re.findall(r"\b(I|II|III|IV|V|VI|VII|VIII|IX|X)\.", text)
-        if len(roman_items) >= 2:
-            return "statement"
+        # Rule 1: Roman numeral colon pairs
+        roman_pairs = re.findall(
+            r"^(I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s+.+\s+:\s+.+",
+            text,
+            flags=re.MULTILINE
+        )
+        if len(roman_pairs) >= 2:
+            return "match"
 
-        # Detect OCR-broken statement headers
-        if "statement i" in qt or "statement ii" in qt:
-            return "statement"
+        # Rule 2: Numbered dash pairs
+        dash_pairs = re.findall(
+            r"^\d+\.\s+.+\s+[-–—]\s+.+",
+            text,
+            flags=re.MULTILINE
+        )
+        if len(dash_pairs) >= 2:
+            return "match"
 
-        if "consider the following statements" in qt:
-            return "statement"
-
-        # Bullet-like patterns: (1), 1), (a), (b)
-        if len(re.findall(r"^\(?\d+\)|^\(?[a-d]\)", text, flags=re.MULTILINE)) >= 2:
-            return "statement"
-
-        # ----------------------------------------------------
-        # 3. MATCH THE FOLLOWING
-        # ----------------------------------------------------
-        if "match the following" in qt:
+        # Rule 3: Sequence matching
+        if "sequence is correct" in qt:
             return "match"
 
         # ----------------------------------------------------
-        # 4. ASSERTION–REASON
+        # 2. TABLE (DATA TABLE, NOT PAIRS)
+        # ----------------------------------------------------
+        if "|" in text:
+            return "table"
+
+        multi_col_lines = 0
+        for ln in lines:
+            if len(ln.split()) >= 3:
+                multi_col_lines += 1
+        if multi_col_lines >= 3 and "matched" not in qt:
+            return "table"
+
+        # ----------------------------------------------------
+        # 3. STATEMENT QUESTIONS
+        # ----------------------------------------------------
+        if "consider the following statements" in qt:
+            return "statement"
+
+        if len(re.findall(r"\b\d+\.", text)) >= 2:
+            return "statement"
+
+        if len(re.findall(r"\b(I|II|III|IV|V)\.", text)) >= 2:
+            return "statement"
+
+        # ----------------------------------------------------
+        # 4. ASSERTION – REASON
         # ----------------------------------------------------
         if "assertion" in qt and "reason" in qt:
             return "assertion"
 
         # ----------------------------------------------------
-        # 5. PARAGRAPH QUESTIONS
+        # 5. PARAGRAPH
         # ----------------------------------------------------
         if any(k in qt for k in ["read the following", "paragraph", "passage"]):
             return "paragraph"
 
-        if text.count(".") >= 5:  # long paragraph style
+        if text.count(".") >= 5:
             return "paragraph"
 
         # ----------------------------------------------------
         # DEFAULT
         # ----------------------------------------------------
         return "single"
-
