@@ -14,11 +14,13 @@ from phase2.json_sanitizer import sanitize_and_load
 from phase2.option_normalizer import normalize_options
 from phase2.format_classifier import FormatClassifier
 from phase2.table_formatter import TableFormatter
+from phase2.match_formatter import MatchFormatter
 from phase2.ocr_fixer import SafeOCRFixer
 from phase2.id_gen import make_id
 
 format_classifier = FormatClassifier()
 table_formatter = TableFormatter()
+match_formatter = MatchFormatter()
 ocr_fixer = SafeOCRFixer()
 
 
@@ -139,6 +141,9 @@ def _apply_linebreaks(text: str) -> str:
 def _postprocess_question(q_text: str, q_format: str) -> str:
     if q_format == "table":
         q_text = table_formatter.format(q_text)
+    
+    if q_format == "match":
+        q_text = match_formatter.format(q_text)
 
     if q_format == "statement":
         q_text = _apply_linebreaks(q_text)
@@ -196,7 +201,15 @@ def build_dataset(ocr_files, output_file):
             options = normalize_options(parsed.get("options", {}))
 
             # FORMAT DETECTION MUST HAPPEN FIRST
+            # Check both raw question and original block text for pipes
+            # (pipes might be lost during LLM reconstruction, so check original block too)
+            block_text_for_format = block if isinstance(block, str) else ""
+            # Use raw_q for format detection, but also check original block for pipes
             q_format = format_classifier.classify(raw_q)
+            # If format is match but original block had pipes, it's actually a table
+            # This handles cases where LLM loses pipes during reconstruction
+            if q_format == "match" and "|" in block_text_for_format:
+                q_format = "table"
 
             # FORMAT-AWARE RECONSTRUCTION
             if q_format == "statement":
@@ -208,6 +221,9 @@ def build_dataset(ocr_files, output_file):
 
             else:
                 q_text = raw_q
+            
+            # Apply format-specific formatting
+            q_text = _postprocess_question(q_text, q_format)
 
             options = _postprocess_options(options)
 

@@ -17,14 +17,21 @@ class FormatClassifier:
         lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
 
         # ----------------------------------------------------
-        # 1. MATCH / PAIRS (HIGHEST PRIORITY)
+        # 1. TABLE (HIGHEST PRIORITY - Check for structured tables)
         # ----------------------------------------------------
+        # SIMPLE RULE: If "|" is present anywhere in text, classify as "table" format
+        # This is the definitive indicator of table structure
+        if "|" in text:
+            return "table"
 
-        # Rule 0: "correctly matched"
+        # ----------------------------------------------------
+        # 2. MATCH / PAIRS (Check after table to avoid misclassification)
+        # ----------------------------------------------------
+        # Rule 0: "correctly matched" - but only if NOT already classified as table
         if re.search(r"correctly matched", qt):
             return "match"
 
-        # Rule 1: Roman numeral colon pairs
+        # Rule 1: Roman numeral colon pairs (I. X : Y format)
         roman_pairs = re.findall(
             r"^(I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s+.+\s+:\s+.+",
             text,
@@ -46,18 +53,6 @@ class FormatClassifier:
         if "sequence is correct" in qt:
             return "match"
 
-        # ----------------------------------------------------
-        # 2. TABLE (DATA TABLE, NOT PAIRS)
-        # ----------------------------------------------------
-        if "|" in text:
-            return "table"
-
-        multi_col_lines = 0
-        for ln in lines:
-            if len(ln.split()) >= 3:
-                multi_col_lines += 1
-        if multi_col_lines >= 3 and "matched" not in qt:
-            return "table"
 
         # ----------------------------------------------------
         # 3. STATEMENT QUESTIONS

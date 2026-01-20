@@ -237,11 +237,14 @@ def clean_csv_value(value: Any) -> str:
     """
     Clean and escape CSV value to handle quotes, newlines, and special characters.
     
+    Note: Newlines are preserved - the CSV writer will automatically quote fields
+    containing newlines to ensure proper CSV format.
+    
     Args:
         value: Value to clean
     
     Returns:
-        Cleaned string value
+        Cleaned string value (with newlines preserved)
     """
     if value is None:
         return ""
@@ -249,8 +252,9 @@ def clean_csv_value(value: Any) -> str:
     # Convert to string
     text = str(value)
     
-    # Replace newlines with spaces (or keep them if needed)
-    # For CSV, we'll keep newlines but ensure proper escaping
+    # Preserve newlines - CSV writer with QUOTE_MINIMAL will automatically quote
+    # fields containing newlines, commas, or quotes to ensure proper CSV format
+    # Only strip leading/trailing whitespace (not internal newlines)
     text = text.strip()
     
     return text
@@ -563,6 +567,11 @@ def main():
         action="store_true",
         help="Add blank lines between rows for better readability (testing/debugging only)"
     )
+    parser.add_argument(
+        "--update-exam-sets",
+        action="store_true",
+        help="Update exam sets in database after merging CSV (default: False)"
+    )
     
     args = parser.parse_args()
     
@@ -606,6 +615,180 @@ def main():
     
     if stats["errors"] > 0:
         sys.exit(1)
+    
+    # Optionally update exam sets after merging
+    if args.update_exam_sets:
+        print("\n[INFO] Updating exam sets from merged CSV...")
+        try:
+            update_exam_sets_from_csv(output_path)
+        except Exception as e:
+            print(f"[WARNING] Failed to update exam sets: {e}")
+            import traceback
+            traceback.print_exc()
+            # Don't fail the merge process if exam set update fails
+            print("[INFO] Continuing despite exam set update failure...")
+
+
+def update_exam_sets_from_csv(csv_path: Path):
+    """
+    Update exam sets in the database based on the merged CSV file.
+    This function is called after merging JSON files to CSV.
+    
+    Args:
+        csv_path: Path to the merged CSV file
+    """
+    # Import here to avoid circular dependencies and only import when needed
+    import sys
+    from pathlib import Path as PathLib
+    
+    # Add ai_pyq directory to path
+    ai_pyq_dir = PathLib(__file__).parent.parent.parent / "ai_pyq"
+    if str(ai_pyq_dir) not in sys.path:
+        sys.path.insert(0, str(ai_pyq_dir))
+    
+    try:
+        from app.database import SessionLocal, ExamSet
+        from utils.config_loader import load_config
+        import pandas as pd
+    except ImportError as e:
+        print(f"[WARNING] Could not import required modules for exam set update: {e}")
+        print("[INFO] Skipping exam set update. You can run seed_exam_sets.py manually.")
+        return
+    
+    db = SessionLocal()
+    
+    try:
+        # Load the CSV file
+        if not csv_path.exists():
+            print(f"[WARNING] CSV file not found: {csv_path}")
+            return
+        
+        print(f"[INFO] Loading CSV from: {csv_path}")
+        df = pd.read_csv(csv_path, keep_default_na=False)
+        df = df.replace('', pd.NA)
+        
+        if len(df) == 0:
+            print("[WARNING] CSV file is empty, skipping exam set update")
+            return
+        
+        print("[INFO] Creating exam sets from CSV data...")
+        
+        # Get unique exam names
+        exams = df["exam"].dropna().unique()
+        
+        exam_sets_created = 0
+        exam_sets_updated = 0
+        
+        for exam_name in exams:
+            exam_df = df[df["exam"] == exam_name].copy()
+            
+            if len(exam_df) == 0:
+                continue
+            
+            # Get unique years for this exam
+            years = exam_df["year"].dropna().unique()
+            if len(years) == 0:
+                continue
+            
+            # Create exam set for EACH year separately
+            for year in sorted(years):
+                year_int = int(year)
+                year_df = exam_df[exam_df["year"] == year_int].copy()
+                
+                if len(year_df) == 0:
+                    continue
+                
+                # Create full paper exam set for this specific year
+                total_questions = len(year_df)
+                duration_minutes = max(60, total_questions * 0.6)  # ~0.6 min per question
+                
+                # Check if already exists (full paper, no subject)
+                existing = db.query(ExamSet).filter(
+                    ExamSet.name == f"{exam_name} {year_int}",
+                    ExamSet.year_from == year_int,
+                    ExamSet.year_to == year_int,
+                    ExamSet.subject.is_(None)
+                ).first()
+                
+                if existing:
+                    # Update existing exam set with new question count
+                    existing.total_questions = total_questions
+                    existing.duration_minutes = int(duration_minutes)
+                    exam_sets_updated += 1
+                    print(f"   Updated: {existing.name} ({total_questions} questions)")
+                else:
+                    # Create new exam set
+                    exam_set = ExamSet(
+                        name=f"{exam_name} {year_int}",
+                        description=f"Complete {exam_name} paper for year {year_int}",
+                        exam_type="pyp",
+                        exam_name=str(exam_name),
+                        year_from=year_int,
+                        year_to=year_int,
+                        total_questions=total_questions,
+                        duration_minutes=int(duration_minutes),
+                        marks_per_question=2.0,
+                        negative_marking=0.5,
+                        is_active=True
+                    )
+                    db.add(exam_set)
+                    exam_sets_created += 1
+                    print(f"   Created: {exam_set.name} ({total_questions} questions)")
+                
+                # Create/update subject-wise exam sets for this exam-year combination
+                subjects = year_df["subject"].dropna().unique()
+                for subject_name in subjects:
+                    subject_df = year_df[year_df["subject"] == subject_name].copy()
+                    
+                    if len(subject_df) == 0:
+                        continue
+                    
+                    subject_question_count = len(subject_df)
+                    subject_duration = max(30, int(subject_question_count * 0.6))
+                    
+                    # Check if subject exam set already exists
+                    existing_subject = db.query(ExamSet).filter(
+                        ExamSet.name == f"{exam_name} {year_int} - {subject_name}",
+                        ExamSet.year_from == year_int,
+                        ExamSet.year_to == year_int,
+                        ExamSet.subject == str(subject_name)
+                    ).first()
+                    
+                    if existing_subject:
+                        # Update existing subject exam set
+                        existing_subject.total_questions = subject_question_count
+                        existing_subject.duration_minutes = subject_duration
+                        exam_sets_updated += 1
+                        print(f"   Updated: {existing_subject.name} ({subject_question_count} questions)")
+                    else:
+                        # Create new subject exam set
+                        subject_exam_set = ExamSet(
+                            name=f"{exam_name} {year_int} - {subject_name}",
+                            description=f"{subject_name} questions from {exam_name} {year_int}",
+                            exam_type="subject_test",
+                            exam_name=str(exam_name),
+                            subject=str(subject_name),
+                            year_from=year_int,
+                            year_to=year_int,
+                            total_questions=subject_question_count,
+                            duration_minutes=subject_duration,
+                            marks_per_question=2.0,
+                            negative_marking=0.5,
+                            is_active=True
+                        )
+                        db.add(subject_exam_set)
+                        exam_sets_created += 1
+                        print(f"   Created: {subject_exam_set.name} ({subject_question_count} questions)")
+        
+        db.commit()
+        print(f"\n[SUCCESS] Exam sets updated: {exam_sets_created} created, {exam_sets_updated} updated")
+        
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Error updating exam sets: {e}")
+        raise
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
