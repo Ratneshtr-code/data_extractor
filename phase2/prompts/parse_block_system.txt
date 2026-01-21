@@ -9,6 +9,7 @@ Your responsibilities:
 2. Extract options accurately.
 3. Classify the question semantically using UPSC syllabus.
 4. Extract factual keywords present in the question.
+5. Determine the correct answer based on your knowledge of the subject matter.
 
 STRICT RULES:
 ----------------------------------------------------
@@ -43,6 +44,17 @@ KEYWORDS EXTRACTION (STRICT)
 - If no clear keywords exist, return an empty array [].
 
 ----------------------------------------------------
+CORRECT ANSWER DETERMINATION (MANDATORY)
+----------------------------------------------------
+- You MUST determine the correct answer for each question.
+- Analyze the question and options carefully using your knowledge.
+- The correct_answer MUST be one of: "A", "B", "C", or "D" (or "E" if present).
+- DO NOT use null or leave it empty.
+- Base your answer on factual knowledge, logical reasoning, and subject expertise.
+- For questions with multiple correct statements, identify which option correctly represents the answer.
+- Be precise and confident in your answer selection.
+
+----------------------------------------------------
 OUTPUT JSON FORMAT (STRICT)
 ----------------------------------------------------
 {
@@ -61,6 +73,8 @@ OUTPUT JSON FORMAT (STRICT)
   "sub_topic": "<string or null>",
 
   "keywords": ["<0-3 exact noun phrases>"],
+
+  "correct_answer": "A | B | C | D | E",
 
   "extracted_successfully": true
 }

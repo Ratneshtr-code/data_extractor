@@ -236,7 +236,22 @@ def build_dataset(ocr_files, output_file):
             parsed.setdefault("sub_topic", None)
             parsed.setdefault("keywords", [])
 
-            parsed.setdefault("correct_answer", None)
+            # Validate and normalize correct_answer from LLM
+            # LLM should provide "A", "B", "C", "D", or "E"
+            valid_answers = ["A", "B", "C", "D", "E"]
+            if "correct_answer" in parsed and parsed.get("correct_answer") is not None:
+                # Normalize the answer: convert to string, strip, uppercase
+                answer = str(parsed.get("correct_answer", "")).strip().upper()
+                if answer in valid_answers:
+                    parsed["correct_answer"] = answer
+                else:
+                    # Invalid format - LLM provided something unexpected
+                    print(f"[WARNING] Invalid correct_answer format for {parsed.get('id', 'unknown')}: {answer}. Setting to None.")
+                    parsed["correct_answer"] = None
+            else:
+                # LLM didn't provide correct_answer (shouldn't happen with updated prompt)
+                parsed["correct_answer"] = None
+            
             parsed.setdefault("is_multi_correct", False)
 
             # -------------------------------
